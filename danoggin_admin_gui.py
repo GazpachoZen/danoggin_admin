@@ -18,6 +18,8 @@ from PyQt5.QtCore import QSize
 from firebase_manager import FirebaseManager
 from create_pack_tab import CreatePackTab
 from upload_questions_tab import UploadQuestionsTab
+from delete_packs_tab import DeletePacksTab
+from manage_users_tab import ManageUsersTab
 
 
 class DanogginAdminApp(QMainWindow):
@@ -39,11 +41,18 @@ class DanogginAdminApp(QMainWindow):
 
         # Create tabs
         self.tab_widget = QTabWidget()
-        self.create_pack_tab = CreatePackTab(self.firebase_manager)
-        self.upload_questions_tab = UploadQuestionsTab(self.firebase_manager)
 
+        self.create_pack_tab = CreatePackTab(self.firebase_manager)
         self.tab_widget.addTab(self.create_pack_tab, "Create Pack")
+
+        self.upload_questions_tab = UploadQuestionsTab(self.firebase_manager)
         self.tab_widget.addTab(self.upload_questions_tab, "Upload Questions")
+
+        self.delete_packs_tab = DeletePacksTab(self.firebase_manager)
+        self.tab_widget.addTab(self.delete_packs_tab, "Delete Packs")
+
+        self.manage_users_tab = ManageUsersTab(self.firebase_manager)
+        self.tab_widget.addTab(self.manage_users_tab, "Manage Users")
 
         main_layout.addWidget(self.tab_widget)
 
