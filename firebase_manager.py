@@ -1,152 +1,96 @@
 # firebase_manager.py
-import os
-import json
+
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.cloud import storage
-from typing import Optional, List, Dict, Any
 
 
 class FirebaseManager:
-    """Manages connections and operations with Firebase services using direct GCS access"""
+    """Manager for Firebase/Firestore operations"""
 
-    def __init__(self, service_account_path: str, bucket_name: Optional[str] = None):
-        """Initialize Firebase with service account credentials
+    def __init__(self, service_account_path="resources/danoggin_service_account.json"):
+        self.service_account_path = service_account_path
+        self._app = None
+        self._db = None
 
-        Args:
-            service_account_path: Path to the Firebase service account JSON file
-            bucket_name: Optional Cloud Storage bucket name. If not provided, will try to
-                        determine from the service account or available buckets.
-        """
+    def initialize(self):
+        """Initialize Firebase if not already initialized"""
         try:
-            # Set environment variable for GCS authentication
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_path
-
-            # Load the service account credentials and extract project ID
-            with open(service_account_path, 'r') as f:
-                service_account_info = json.load(f)
-                self.project_id = service_account_info.get('project_id')
-                print(f"Project ID from service account: {self.project_id}")
-
-            # Initialize Firebase for Firestore
-            self.cred = credentials.Certificate(service_account_path)
-            self.app = firebase_admin.initialize_app(self.cred)
-            self.db = firestore.client()
-            print("Firestore initialized successfully")
-
-            # Initialize Google Cloud Storage client
-            self.storage_client = storage.Client()
-            print("Google Cloud Storage client initialized")
-
-            # If bucket_name not provided, try to find the first available bucket
-            if not bucket_name:
-                buckets = list(self.storage_client.list_buckets())
-                if buckets:
-                    bucket_name = buckets[0].name
-                    print(f"Using first available bucket: {bucket_name}")
-                elif self.project_id:
-                    # Try the default bucket name based on project ID
-                    bucket_name = f"{self.project_id}.appspot.com"
-                    print(f"Using default bucket name: {bucket_name}")
-
-            # Set the bucket
-            if bucket_name:
-                self.bucket = self.storage_client.bucket(bucket_name)
-                print(f"Using storage bucket: {bucket_name}")
-            else:
-                print("WARNING: No bucket name available. Storage operations will fail.")
-                self.bucket = None
-
-        except Exception as e:
-            print(f"Error during initialization: {e}")
-            raise
-
-    def upload_image(self, file_path: str, destination_path: str) -> Optional[str]:
-        """Upload an image to Cloud Storage
-
-        Args:
-            file_path: Local path to the image file
-            destination_path: Destination path in Cloud Storage
-
-        Returns:
-            Download URL if successful, None otherwise
-        """
-        if not self.bucket:
-            print("Error: Storage bucket not initialized")
-            return None
-
-        try:
-            print(f"Uploading file: {file_path}")
-            print(f"Destination path: {destination_path}")
-
-            # Normalize file path (convert forward slashes to OS-specific separators)
-            normalized_path = os.path.normpath(file_path)
-
-            # Check if file exists
-            if not os.path.exists(normalized_path):
-                print(f"Error: File does not exist at {normalized_path}")
-                return None
-
-            # Upload the file
-            blob = self.bucket.blob(destination_path)
-            blob.upload_from_filename(normalized_path)
-            blob.make_public()  # Make the file publicly accessible
-
-            # Get and print the URL to verify success
-            url = blob.public_url
-            print(f"Upload successful. Public URL: {url}")
-            return url
-
-        except Exception as e:
-            print(f"Error uploading {file_path}: {str(e)}")
-            return None
-
-    def check_blob_exists(self, blob_path: str) -> bool:
-        """Check if a blob exists in the bucket
-
-        Args:
-            blob_path: Path to the blob in Cloud Storage
-
-        Returns:
-            True if the blob exists, False otherwise
-        """
-        if not self.bucket:
-            return False
-
-        blob = self.bucket.blob(blob_path)
-        return blob.exists()
-
-    def get_question_packs(self) -> List[Dict[str, Any]]:
-        """Retrieve all question packs from Firestore
-
-        Returns:
-            List of question pack dictionaries
-        """
-        packs = []
-        try:
-            pack_refs = self.db.collection('question_packs').stream()
-            for pack_ref in pack_refs:
-                pack_data = pack_ref.to_dict()
-                pack_data['id'] = pack_ref.id
-                packs.append(pack_data)
-            return packs
-        except Exception as e:
-            print(f"Error fetching question packs: {str(e)}")
-            return []
-
-    def update_question_pack(self, pack_id: str, data: Dict[str, Any]) -> bool:
-        """Update a question pack in Firestore
-
-        Args:
-            pack_id: ID of the question pack to update
-            data: Updated data dictionary
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            self.db.collection('question_packs').document(pack_id).set(data, merge=True)
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(self.service_account_path)
+                self._app = firebase_admin.initialize_app(cred)
+            self._db = firestore.client()
             return True
         except Exception as e:
-            print(f"Error updating question pack {pack_id}: {str(e)}")
+            print(f"Error initializing Firebase: {str(e)}")
             return False
+
+    def create_question_pack(self, pack_name):
+        """Create a new question pack in Firestore"""
+        if not self._db:
+            if not self.initialize():
+                return False, "Failed to initialize Firebase"
+
+        try:
+            # Format pack name for display
+            display_name = ' '.join(word.capitalize() for word in pack_name.split('_'))
+
+            # Create pack data
+            pack_data = {
+                'name': display_name,
+                'imageFolder': f'question_packs/{pack_name}/images',
+                'questions': []
+            }
+
+            # Add the pack to Firestore
+            self._db.collection('question_packs').document(pack_name).set(pack_data)
+
+            return True, f"Created pack '{display_name}' with ID '{pack_name}'"
+        except Exception as e:
+            return False, f"Error creating question pack: {str(e)}"
+
+    def get_question_packs(self):
+        """Get all question packs from Firestore"""
+        if not self._db:
+            if not self.initialize():
+                return []
+
+        try:
+            pack_refs = self._db.collection('question_packs').stream()
+            packs = []
+            for pack_ref in pack_refs:
+                pack_data = pack_ref.to_dict()
+                packs.append((pack_ref.id, pack_data.get('name', 'Unnamed')))
+            return packs
+        except Exception as e:
+            print(f"Error getting question packs: {str(e)}")
+            return []
+
+    def upload_questions(self, pack_name, questions_data):
+        """Upload questions to a question pack"""
+        if not self._db:
+            if not self.initialize():
+                return False, "Failed to initialize Firebase"
+
+        try:
+            # Get reference to the question pack
+            pack_ref = self._db.collection('question_packs').document(pack_name)
+            doc = pack_ref.get()
+
+            if not doc.exists:
+                return False, f"Question pack '{pack_name}' does not exist!"
+
+            # Get current pack data
+            current_data = doc.to_dict()
+
+            # Combine questions
+            current_questions = current_data.get('questions', [])
+            combined_questions = current_questions + questions_data
+
+            # Update the question pack
+            pack_ref.update({
+                'questions': combined_questions
+            })
+
+            return True, f"Added {len(questions_data)} questions to '{pack_name}'"
+        except Exception as e:
+            return False, f"Error uploading questions: {str(e)}"
