@@ -20,6 +20,7 @@ from create_pack_tab import CreatePackTab
 from upload_questions_tab import UploadQuestionsTab
 from delete_packs_tab import DeletePacksTab
 from manage_users_tab import ManageUsersTab
+from purge_responder_status_tab import PurgeResponderStatusTab
 
 
 class DanogginAdminApp(QMainWindow):
@@ -53,6 +54,9 @@ class DanogginAdminApp(QMainWindow):
 
         self.manage_users_tab = ManageUsersTab(self.firebase_manager)
         self.tab_widget.addTab(self.manage_users_tab, "Manage Users")
+
+        self.purge_responder_status_tab = PurgeResponderStatusTab(self.firebase_manager)
+        self.tab_widget.addTab(self.purge_responder_status_tab, "Purge Status Data")
 
         main_layout.addWidget(self.tab_widget)
 
