@@ -255,7 +255,7 @@ class FirebaseManager:
             return []
 
     def delete_user(self, user_id):
-        """Delete a user and clean up all relationships
+        """Delete a user and clean up all relationships and associated data
 
         Args:
             user_id: ID of the user to delete
@@ -302,14 +302,21 @@ class FirebaseManager:
                                 'observing': observing
                             })
 
-                # Also delete any check-ins for this responder
-                check_ins_ref = self._db.collection('responder_status').document(user_id)
-                check_ins_doc = check_ins_ref.get()
+                # Delete the responder_status document and all its check-ins
+                responder_status_ref = self._db.collection('responder_status').document(user_id)
+                responder_status_doc = responder_status_ref.get()
 
-                if check_ins_doc.exists:
-                    # For simplicity, we'll delete the entire document
-                    # In a more detailed implementation, you might want to delete all subcollections
-                    check_ins_ref.delete()
+                if responder_status_doc.exists:
+                    # First, delete all check-ins
+                    check_ins_ref = responder_status_ref.collection('check_ins')
+                    check_ins = list(check_ins_ref.stream())
+
+                    for check_in in check_ins:
+                        check_in.reference.delete()
+
+                    # Then delete the responder_status document itself
+                    responder_status_ref.delete()
+                    print(f"Deleted responder_status document and {len(check_ins)} check-ins for user {user_id}")
 
             elif user_role == 'observer':
                 # Get all responders this observer is watching
@@ -333,10 +340,10 @@ class FirebaseManager:
                                 'linkedObservers': linked_observers
                             })
 
-            # Delete the user
+            # Delete the user document
             user_ref.delete()
 
-            return True, f"User '{user_name}' deleted successfully with all relationships cleaned up"
+            return True, f"User '{user_name}' deleted successfully with all relationships and responder status cleaned up"
         except Exception as e:
             return False, f"Error deleting user: {str(e)}"
 
