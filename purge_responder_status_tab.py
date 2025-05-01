@@ -1,16 +1,8 @@
-# # # # # # # # # # # # # # # # # # # # # # # # # # # 
-#   BlueVista Solutions            
-#   Company proprietary      Author: Claude
-#   All rights reserved     Created: 4/30/2025, 10:15 AM
-#   Copyright 2025
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# purge_responder_status_tab.py
-
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGroupBox, QTextEdit, QMessageBox,
                              QTableWidget, QTableWidgetItem, QHeaderView,
                              QAbstractItemView, QCheckBox, QSplitter)
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, pyqtSlot
 from PyQt5.QtGui import QColor, QBrush
 import datetime
 
@@ -118,89 +110,72 @@ class PurgeResponderStatusTab(QWidget):
         self.status_text.append("Loading responder status records...")
         self.details_text.clear()
 
-        try:
-            # Get all users first for reference
-            users = self.firebase_manager.get_users_with_relationships()
-            self.user_data = {user['id']: user for user in users}
-            self.status_text.append(f"Loaded {len(users)} user records for reference")
+        # Get all users first for reference
+        users = self.firebase_manager.get_users_with_relationships()
+        self.user_data = {user['id']: user for user in users}
 
-            # Get responder_status data
-            self.status_text.append("Fetching responder_status records...")
-            responder_status_data = self.firebase_manager.get_responder_status_data()
+        # Get responder_status data
+        responder_status_data = self.firebase_manager.get_responder_status_data()
 
-            if not responder_status_data:
-                self.status_text.append("No responder status records found or failed to load data")
-                self.responders_table.setRowCount(0)
-                self.responder_data = []
-                return
+        if not responder_status_data:
+            self.status_text.append("No responder status records found or failed to load data")
+            self.responders_table.setRowCount(0)
+            self.responder_data = []
+            return
 
-            self.status_text.append(f"Successfully retrieved {len(responder_status_data)} responder status records")
+        # Store the responder data
+        self.responder_data = responder_status_data
 
-            # Store the responder data
-            self.responder_data = responder_status_data
+        # Populate the table
+        self.responders_table.setRowCount(len(responder_status_data))
+        for row, responder_info in enumerate(responder_status_data):
+            responder_id = responder_info['id']
+            check_ins = responder_info['check_ins']
+            latest_check_in = responder_info['latest_check_in']
 
-            # Populate the table
-            self.status_text.append("Populating table with responder data...")
-            self.responders_table.setRowCount(len(responder_status_data))
-            orphaned_count = 0
+            # Get user name if exists
+            user_exists = responder_id in self.user_data
+            user_name = self.user_data.get(responder_id, {}).get('name', 'Unknown')
 
-            for row, responder_info in enumerate(responder_status_data):
-                responder_id = responder_info['id']
-                check_ins = responder_info['check_ins']
-                latest_check_in = responder_info['latest_check_in']
+            # Checkbox cell for selection
+            checkbox = QTableWidgetItem()
+            checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            checkbox.setCheckState(Qt.Unchecked)
+            self.responders_table.setItem(row, 0, checkbox)
 
-                # Get user name if exists
-                user_exists = responder_id in self.user_data
-                if not user_exists:
-                    orphaned_count += 1
+            # Responder ID cell
+            id_item = QTableWidgetItem(responder_id)
+            id_item.setFlags(id_item.flags() & ~Qt.ItemIsEditable)
+            self.responders_table.setItem(row, 1, id_item)
 
-                user_name = self.user_data.get(responder_id, {}).get('name', 'Unknown')
+            # Name cell
+            name_item = QTableWidgetItem(user_name)
+            name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
+            self.responders_table.setItem(row, 2, name_item)
 
-                # Checkbox cell for selection
-                checkbox = QTableWidgetItem()
-                checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
-                checkbox.setCheckState(Qt.Unchecked)
-                self.responders_table.setItem(row, 0, checkbox)
+            # Check-ins count cell
+            count_item = QTableWidgetItem(str(check_ins))
+            count_item.setTextAlignment(Qt.AlignCenter)
+            count_item.setFlags(count_item.flags() & ~Qt.ItemIsEditable)
+            self.responders_table.setItem(row, 3, count_item)
 
-                # Responder ID cell
-                id_item = QTableWidgetItem(responder_id)
-                id_item.setFlags(id_item.flags() & ~Qt.ItemIsEditable)
-                self.responders_table.setItem(row, 1, id_item)
+            # Latest check-in cell
+            latest_item = QTableWidgetItem(latest_check_in)
+            latest_item.setFlags(latest_item.flags() & ~Qt.ItemIsEditable)
+            self.responders_table.setItem(row, 4, latest_item)
 
-                # Name cell
-                name_item = QTableWidgetItem(user_name)
-                name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
-                self.responders_table.setItem(row, 2, name_item)
+            # Status cell
+            status_text = "Valid" if user_exists else "Orphaned"
+            status_item = QTableWidgetItem(status_text)
+            status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
 
-                # Check-ins count cell
-                count_item = QTableWidgetItem(str(check_ins))
-                count_item.setTextAlignment(Qt.AlignCenter)
-                count_item.setFlags(count_item.flags() & ~Qt.ItemIsEditable)
-                self.responders_table.setItem(row, 3, count_item)
+            # Highlight orphaned entries in red
+            if not user_exists:
+                status_item.setBackground(QBrush(QColor(255, 200, 200)))
 
-                # Latest check-in cell
-                latest_item = QTableWidgetItem(latest_check_in)
-                latest_item.setFlags(latest_item.flags() & ~Qt.ItemIsEditable)
-                self.responders_table.setItem(row, 4, latest_item)
+            self.responders_table.setItem(row, 5, status_item)
 
-                # Status cell
-                status_text = "Valid" if user_exists else "Orphaned"
-                status_item = QTableWidgetItem(status_text)
-                status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
-
-                # Highlight orphaned entries in red
-                if not user_exists:
-                    status_item.setBackground(QBrush(QColor(255, 200, 200)))
-
-                self.responders_table.setItem(row, 5, status_item)
-
-            self.status_text.append(
-                f"Loaded {len(responder_status_data)} responder status records ({orphaned_count} orphaned)")
-
-        except Exception as e:
-            self.status_text.append(f"Error refreshing responder status data: {str(e)}")
-            import traceback
-            self.status_text.append(traceback.format_exc())
+        self.status_text.append(f"Loaded {len(responder_status_data)} responder status records")
 
     def on_responder_selected(self):
         """Handle responder selection in the table"""
@@ -336,4 +311,10 @@ class PurgeResponderStatusTab(QWidget):
         self.status_text.append(f"Purge complete: {success_count} succeeded, {failed_count} failed")
 
         # Refresh the list
+        self.refresh_responders()
+
+    @pyqtSlot()
+    def handle_user_deleted(self):
+        """Handle the signal when a user is deleted"""
+        self.status_text.append("User deleted - refreshing responder status list...")
         self.refresh_responders()

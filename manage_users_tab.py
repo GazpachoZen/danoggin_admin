@@ -1,5 +1,3 @@
-# manage_users_tab.py
-
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QGroupBox, QTextEdit, QMessageBox,
@@ -7,12 +5,15 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QAbstractItemView, QApplication, QTreeWidget,
                              QTreeWidgetItem, QSplitter, QFrame, QTabWidget,
                              QTableView, QDialog, QDialogButtonBox)
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 
 
 class ManageUsersTab(QWidget):
     """Tab for managing responders and observers"""
+
+    # Signal for when data changes
+    data_changed = pyqtSignal()
 
     def __init__(self, firebase_manager):
         super().__init__()
@@ -343,5 +344,7 @@ class ManageUsersTab(QWidget):
             self.status_text.append(f"✅ {message}")
             # Refresh users list
             self.refresh_users()
+            # Emit signal that data has changed
+            self.data_changed.emit()
         else:
             self.status_text.append(f"❌ {message}")

@@ -65,7 +65,6 @@ class FirebaseManager:
                     print(f"Error accessing responder_status: {e}")
                     import traceback
                     print(traceback.format_exc())
-            print("JEI 1")
             return True
         except Exception as e:
             print(f"Error initializing Firebase: {str(e)}")

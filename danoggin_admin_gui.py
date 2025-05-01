@@ -1,12 +1,3 @@
-# # # # # # # # # # # # # # # # # # # # # # # # # # # 
-#   BlueVista Solutions            
-#   Company proprietary      Author: John Ivory
-#   All rights reserved     Created: 4/28/2025, 9:17 AM
-#   Copyright 2025
-# # # # # # # # # # # # # # # # # # # # # # # # # # #
-# !/usr/bin/env python
-# danoggin_admin_gui.py
-
 import os
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -78,6 +69,9 @@ class DanogginAdminApp(QMainWindow):
         # Initialize Firebase status
         self.status_bar = self.statusBar()
         self.check_firebase_connection()
+
+        # Connect the data_changed signal from ManageUsersTab to the refresh method
+        self.manage_users_tab.data_changed.connect(self.purge_responder_status_tab.handle_user_deleted)
 
     def browse_service_account(self):
         """Open a file dialog to select a service account file"""
