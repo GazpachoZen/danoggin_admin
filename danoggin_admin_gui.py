@@ -7,12 +7,11 @@ from PyQt5.QtCore import QSize
 
 # Import custom modules
 from firebase_manager import FirebaseManager
-from create_pack_tab import CreatePackTab
-from upload_questions_tab import UploadQuestionsTab
-from delete_packs_tab import DeletePacksTab
-from manage_users_tab import ManageUsersTab
-from purge_responder_status_tab import PurgeResponderStatusTab
-
+from tabs.create_pack_tab import CreatePackTab
+from tabs.upload_questions_tab import UploadQuestionsTab
+from tabs.delete_packs_tab import DeletePacksTab
+from tabs.manage_users_tab import ManageUsersTab
+from tabs.purge_responder_status_tab import PurgeResponderStatusTab
 
 class DanogginAdminApp(QMainWindow):
     """Main application window"""
