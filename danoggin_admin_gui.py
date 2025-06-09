@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt5.QtCore import QSize
 
 # Import custom modules
-from firebase_manager import FirebaseManager
+from firebase_services import FirebaseManager
 from tabs.create_pack_tab import CreatePackTab
 from tabs.upload_questions_tab import UploadQuestionsTab
 from tabs.delete_packs_tab import DeletePacksTab
