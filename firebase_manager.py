@@ -547,3 +547,186 @@ class FirebaseManager:
         """Clean up any resources held by the FirebaseManager"""
         # Placeholder for any cleanup needed
         print("Cleaning up Firebase resources")
+
+    def get_users_with_engagement_metrics(self):
+        """Get all users with their relationship information and engagement metrics
+
+        Returns:
+            List of user data dictionaries with relationship and engagement information
+        """
+        if not self._db:
+            if not self.initialize():
+                return []
+
+        try:
+            # Get all users
+            user_refs = self._db.collection('users').stream()
+            users = []
+
+            for user_ref in user_refs:
+                user_data = user_ref.to_dict()
+                user_id = user_ref.id
+
+                # Basic user info
+                user_info = {
+                    'id': user_id,
+                    'name': user_data.get('name', 'Unnamed'),
+                    'role': user_data.get('role', 'unknown'),
+                }
+
+                # Add created timestamp if available
+                if 'createdAt' in user_data:
+                    created_at = user_data['createdAt']
+                    # Handle Firestore timestamp objects
+                    if hasattr(created_at, 'timestamp'):
+                        from datetime import datetime
+                        dt = datetime.fromtimestamp(created_at.timestamp())
+                        user_info['created_at'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        user_info['created_at'] = str(created_at)
+
+                # Add invite code for responders
+                if user_data.get('role') == 'responder' and 'inviteCode' in user_data:
+                    user_info['invite_code'] = user_data['inviteCode']
+
+                # Add relationships
+                if user_data.get('role') == 'responder' and 'linkedObservers' in user_data:
+                    user_info['linked_observers'] = user_data['linkedObservers']
+
+                if user_data.get('role') == 'observer' and 'observing' in user_data:
+                    user_info['observing'] = user_data['observing']
+
+                # Add engagement metrics
+                engagement_metrics = user_data.get('engagementMetrics', {})
+                user_info['engagement_score'] = engagement_metrics.get('engagementScore', 0)
+                user_info['token_failure_count'] = engagement_metrics.get('tokenFailureCount', 0)
+                user_info['successful_notification_count'] = engagement_metrics.get('successfulNotificationCount', 0)
+
+                # Calculate token health ratio
+                total_notifications = user_info['token_failure_count'] + user_info['successful_notification_count']
+                if total_notifications > 0:
+                    success_rate = (user_info['successful_notification_count'] / total_notifications) * 100
+                    user_info[
+                        'token_health'] = f"{user_info['successful_notification_count']}/{total_notifications} ({success_rate:.1f}%)"
+                else:
+                    user_info['token_health'] = "No data"
+
+                # Add last activity timestamps
+                if 'lastSuccessfulNotification' in engagement_metrics:
+                    last_success = engagement_metrics['lastSuccessfulNotification']
+                    if hasattr(last_success, 'timestamp'):
+                        from datetime import datetime
+                        dt = datetime.fromtimestamp(last_success.timestamp())
+                        user_info['last_successful_notification'] = dt.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        user_info['last_successful_notification'] = str(last_success)
+                else:
+                    user_info['last_successful_notification'] = 'Never'
+
+                # Identify test accounts (names containing numbers)
+                user_info['is_likely_test'] = any(char.isdigit() for char in user_info['name'])
+
+                users.append(user_info)
+
+            return users
+        except Exception as e:
+            print(f"Error fetching users with engagement metrics: {str(e)}")
+            return []
+
+
+    def get_engagement_summary(self):
+        """Get summary statistics for user engagement
+
+        Returns:
+            Dictionary with engagement statistics
+        """
+        if not self._db:
+            if not self.initialize():
+                return {}
+
+        try:
+            users = self.get_users_with_engagement_metrics()
+
+            if not users:
+                return {}
+
+            # Calculate summary statistics
+            total_users = len(users)
+            healthy_users = len([u for u in users if u['engagement_score'] > 90])
+            declining_users = len([u for u in users if 50 <= u['engagement_score'] <= 90])
+            churned_users = len([u for u in users if u['engagement_score'] < 50])
+            test_accounts = len([u for u in users if u['is_likely_test']])
+
+            # Token health statistics
+            users_with_notifications = [u for u in users if u['successful_notification_count'] > 0]
+            avg_success_rate = 0
+            if users_with_notifications:
+                total_successes = sum(u['successful_notification_count'] for u in users_with_notifications)
+                total_failures = sum(u['token_failure_count'] for u in users_with_notifications)
+                total_attempts = total_successes + total_failures
+                if total_attempts > 0:
+                    avg_success_rate = (total_successes / total_attempts) * 100
+
+            return {
+                'total_users': total_users,
+                'healthy_users': healthy_users,
+                'declining_users': declining_users,
+                'churned_users': churned_users,
+                'test_accounts': test_accounts,
+                'avg_notification_success_rate': avg_success_rate,
+                'users_with_activity': len(users_with_notifications)
+            }
+        except Exception as e:
+            print(f"Error getting engagement summary: {str(e)}")
+            return {}
+
+
+    def identify_test_accounts(self, include_criteria=None):
+        """Identify likely test accounts based on criteria
+
+        Args:
+            include_criteria: Additional criteria for test account identification
+
+        Returns:
+            List of user IDs that are likely test accounts
+        """
+        if not self._db:
+            if not self.initialize():
+                return []
+
+        try:
+            users = self.get_users_with_engagement_metrics()
+            test_account_ids = []
+
+            for user in users:
+                is_test = False
+
+                # Primary criteria: name contains numbers
+                if user['is_likely_test']:
+                    is_test = True
+
+                # Additional criteria can be added here
+                if include_criteria:
+                    # Example: very low engagement score
+                    if 'low_engagement' in include_criteria and user['engagement_score'] < 20:
+                        is_test = True
+
+                    # Example: no successful notifications despite being old account
+                    if 'no_activity' in include_criteria and user['successful_notification_count'] == 0:
+                        # Check if account is older than 7 days
+                        if user.get('created_at') and user['created_at'] != 'Unknown':
+                            from datetime import datetime, timedelta
+                            try:
+                                created_date = datetime.strptime(user['created_at'], '%Y-%m-%d %H:%M:%S')
+                                if datetime.now() - created_date > timedelta(days=7):
+                                    is_test = True
+                            except:
+                                pass
+
+                if is_test:
+                    test_account_ids.append(user['id'])
+
+            return test_account_ids
+        except Exception as e:
+            print(f"Error identifying test accounts: {str(e)}")
+            return []
