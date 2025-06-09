@@ -25,7 +25,7 @@ from .question_pack_manager import QuestionPackManager
 from .user_manager import UserManager
 from .status_manager import StatusManager
 from .analytics_manager import AnalyticsManager
-
+from .fcm_manager import FCMManager
 
 class FirebaseManager:
     """
@@ -44,7 +44,8 @@ class FirebaseManager:
         self.users = UserManager(self.base_manager)
         self.status = StatusManager(self.base_manager)
         self.analytics = AnalyticsManager(self.base_manager)
-        
+        self.fcm = FCMManager(self.base_manager)
+
         # Maintain backward compatibility by exposing service_account_path
         self.service_account_path = service_account_path
     
@@ -109,5 +110,6 @@ __all__ = [
     'QuestionPackManager', 
     'UserManager',
     'StatusManager',
-    'AnalyticsManager'
+    'AnalyticsManager',
+    'FCMManager'
 ]

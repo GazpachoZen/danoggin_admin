@@ -12,6 +12,7 @@ from tabs.upload_questions_tab import UploadQuestionsTab
 from tabs.delete_packs_tab import DeletePacksTab
 from tabs.manage_users_tab import ManageUsersTab
 from tabs.purge_responder_status_tab import PurgeResponderStatusTab
+from tabs.fcm_analytics_tab import FCMAnalyticsTab
 
 class DanogginAdminApp(QMainWindow):
     """Main application window"""
@@ -47,6 +48,9 @@ class DanogginAdminApp(QMainWindow):
 
         self.purge_responder_status_tab = PurgeResponderStatusTab(self.firebase_manager)
         self.tab_widget.addTab(self.purge_responder_status_tab, "Purge Status Data")
+
+        self.fcm_analytics_tab = FCMAnalyticsTab(self.firebase_manager)
+        self.tab_widget.addTab(self.fcm_analytics_tab, "FCM Analytics")
 
         main_layout.addWidget(self.tab_widget)
 
