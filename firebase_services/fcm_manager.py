@@ -1,5 +1,4 @@
-# firebase_services/fcm_manager.py
-
+from google.cloud.firestore_v1 import FieldFilter
 from datetime import datetime, timedelta
 
 
@@ -32,7 +31,7 @@ class FCMManager:
             cutoff_str = cutoff_date.isoformat()
             
             query = self.db.collection('token_events')\
-                .where('timestamp', '>=', cutoff_str)\
+                .where(filter=FieldFilter('timestamp', '>=', cutoff_str))\
                 .order_by('timestamp', direction='DESCENDING')\
                 .limit(limit)
             
@@ -66,8 +65,8 @@ class FCMManager:
             cutoff_str = cutoff_date.isoformat()
             
             events = self.db.collection('token_events')\
-                .where('userId', '==', user_id)\
-                .where('timestamp', '>=', cutoff_str)\
+                .where(filter=FieldFilter('userId', '==', user_id))\
+                .where(filter=FieldFilter('timestamp', '>=', cutoff_str))\
                 .order_by('timestamp', direction='DESCENDING')\
                 .stream()
             
@@ -415,7 +414,7 @@ class FCMManager:
             
             while True:
                 old_events = self.db.collection('token_events')\
-                    .where('timestamp', '<', cutoff_str)\
+                    .where(filter=FieldFilter('timestamp', '<', cutoff_str))\
                     .limit(batch_size)\
                     .stream()
                 
