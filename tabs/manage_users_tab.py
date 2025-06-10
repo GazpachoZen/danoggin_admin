@@ -211,10 +211,10 @@ class ManageUsersTab(QWidget):
         headers = base_headers.copy()
         
         if self.show_engagement_metrics:
-            headers.extend(["Engagement Score", "Token Health", "Last Activity"])
+            headers.extend(["Engagement\nScore", "Token\nHealth", "Last\nActivity"])
         
         if self.show_fcm_details:
-            headers.extend(["FCM Events", "Strikes", "Removals", "Token Status"])
+            headers.extend(["FCM\nEvents", "Strikes", "Removals", "Token\nStatus"])
 
         self.users_table.setColumnCount(len(headers))
         self.users_table.setHorizontalHeaderLabels(headers)
@@ -722,6 +722,11 @@ class ManageUsersTab(QWidget):
                 for responder_id, responder_name in responders.items():
                     info_text += f"• {responder_name} ({responder_id})\n"
 
+        info_text += "\n\n=================================="
+        info_text += f"\nfcmToken: {user_data['fcmToken']}"
+        info_text += f"\nnextCheckInTime: {user_data['nextCheckInTime']}"
+        info_text += f"\nlastCheckInTime: {user_data['lastCheckInTime']}"
+        
         self.user_info_text.setText(info_text)
 
     def update_relationships_tree(self, user_data):

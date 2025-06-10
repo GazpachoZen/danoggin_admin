@@ -185,16 +185,21 @@ class UserManager:
                     else:
                         user_info['created_at'] = str(created_at)
 
-                # Add invite code for responders
-                if user_data.get('role') == 'responder' and 'inviteCode' in user_data:
-                    user_info['invite_code'] = user_data['inviteCode']
-
-                # Add relationships
-                if user_data.get('role') == 'responder' and 'linkedObservers' in user_data:
-                    user_info['linked_observers'] = user_data['linkedObservers']
-
-                if user_data.get('role') == 'observer' and 'observing' in user_data:
-                    user_info['observing'] = user_data['observing']
+                if len(user_data['fcmTokens']) > 0:
+                    user_info['fcmToken'] = user_data['fcmTokens'][0]['token']
+                else:
+                    user_info['fcmToken'] = 'NADA?!'
+                
+                if user_data.get('role') == 'responder':
+                    if 'inviteCode' in user_data:
+                        user_info['invite_code'] = user_data['inviteCode']
+                    if 'linkedObservers' in user_data:
+                        user_info['linked_observers'] = user_data['linkedObservers']
+                    if 'observing' in user_data:
+                        user_info['observing'] = user_data['observing']
+                    
+                    user_info['nextCheckInTime'] = user_data['checkInSettings']['nextCheckInTime']
+                    user_info['lastCheckInTime'] = user_data['checkInSettings']['lastCheckInTime']
 
                 # Add engagement metrics
                 engagement_metrics = user_data.get('engagementMetrics', {})
